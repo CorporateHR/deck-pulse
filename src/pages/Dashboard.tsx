@@ -36,8 +36,17 @@ const Dashboard: React.FC = () => {
         navigate("/auth", { replace: true });
         return;
       }
-      // fetch user decks
-      const { data, error } = await supabase.from("decks").select("id, name, author, industry, slug").order("created_at", { ascending: false });
+      // fetch user decks - only show decks belonging to the authenticated user
+      const userId = session.user?.id;
+      if (!userId) {
+        navigate("/auth", { replace: true });
+        return;
+      }
+      const { data, error } = await supabase
+        .from("decks")
+        .select("id, name, author, industry, slug")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
       if (!error && data) setDecks(data as Deck[]);
       setLoading(false);
     });
