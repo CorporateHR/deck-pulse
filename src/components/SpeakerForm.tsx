@@ -56,17 +56,53 @@ export const SpeakerForm: React.FC = () => {
         setInserting(false);
         return;
       }
+      
       const slug = slugify(talk_title);
-      const { error } = await supabase.from("speakers").insert({
+      
+      // First create the speaker record
+      const { data: speakerData, error: insertError } = await supabase.from("speakers").insert({
         speaker_name,
         talk_title,
         event_name,
         user_id: uid,
         slug,
-      });
-      if (error) throw error;
+      }).select().single();
+
+      if (insertError) throw insertError;
+      
+      // Generate QR code and upload to storage
+      const feedbackUrl = `${window.location.origin}/f/${slug}`;
+      const { data: sessionToken } = await supabase.auth.getSession();
+      
+      try {
+        const response = await fetch('/functions/v1/generate-qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            speakerId: speakerData.id,
+            feedbackUrl,
+            userId: uid,
+          }),
+        });
+
+        if (!response.ok) {
+          console.warn('QR code generation failed, but speaker was created');
+        }
+      } catch (qrError) {
+        console.warn('QR code generation failed:', qrError);
+      }
+      
       setCreatedSlug(slug);
-      toast({ title: "Speaker registered", description: "QR code generated below." });
+      toast({ title: "Speaker registered", description: "QR code generated and saved to storage." });
+      
+      // Reset form
+      setSpeakerName("");
+      setTalkTitle("");
+      setEventName("");
+      
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to create speaker." });
     } finally {

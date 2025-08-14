@@ -13,6 +13,7 @@ type Speaker = {
   talk_title: string;
   event_name: string;
   slug: string;
+  qr_code_url?: string;
 };
 
 type Feedback = {
@@ -44,7 +45,7 @@ const Dashboard: React.FC = () => {
       }
       const { data, error } = await supabase
         .from("speakers")
-        .select("id, speaker_name, talk_title, event_name, slug")
+        .select("id, speaker_name, talk_title, event_name, slug, qr_code_url")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (!error && data) setSpeakers(data as Speaker[]);
@@ -101,7 +102,11 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="p-2 rounded border bg-card text-foreground">
-                    <QRCode value={feedbackUrl} size={96} bgColor="transparent" fgColor="currentColor" />
+                    {s.qr_code_url ? (
+                      <img src={s.qr_code_url} alt="QR Code" className="w-24 h-24" />
+                    ) : (
+                      <QRCode value={feedbackUrl} size={96} bgColor="transparent" fgColor="currentColor" />
+                    )}
                   </div>
                   <div className="grid gap-1">
                     <a className="text-sm text-primary underline" href={feedbackUrl} target="_blank" rel="noreferrer">{feedbackUrl}</a>
