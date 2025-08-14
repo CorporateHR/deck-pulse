@@ -6,10 +6,10 @@ const Index = () => {
       <div className="pointer-events-none absolute inset-0 [background:var(--gradient-surface)]" aria-hidden />
       <section className="relative container py-24 text-center grid gap-6">
         <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
-          QR feedback for presentation decks
+          QR feedback for speakers & talks
         </h1>
         <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-          Register your deck, get a unique QR code, and collect anonymous ratings and comments in seconds.
+          Register speakers, get unique QR codes, and collect anonymous ratings and comments in seconds.
         </p>
         <div className="flex items-center justify-center gap-4">
           <a href="/auth">
@@ -19,12 +19,12 @@ const Index = () => {
         </div>
         <div id="how-it-works" className="grid md:grid-cols-3 gap-4 pt-8">
           <div className="rounded-lg border p-6 bg-card text-left">
-            <div className="text-sm font-semibold mb-2">1. Register deck</div>
-            <p className="text-sm text-muted-foreground">Add name, author, and industry.</p>
+            <div className="text-sm font-semibold mb-2">1. Register speaker</div>
+            <p className="text-sm text-muted-foreground">Add speaker name, talk title, and event.</p>
           </div>
           <div className="rounded-lg border p-6 bg-card text-left">
             <div className="text-sm font-semibold mb-2">2. Share QR</div>
-            <p className="text-sm text-muted-foreground">Download and place it on your first slide.</p>
+            <p className="text-sm text-muted-foreground">Download and display during the talk.</p>
           </div>
           <div className="rounded-lg border p-6 bg-card text-left">
             <div className="text-sm font-semibold mb-2">3. Get feedback</div>

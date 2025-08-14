@@ -28,11 +28,11 @@ function slugify(input: string) {
   return `${base || "deck"}-${nanoid(8)}`;
 }
 
-export const DeckForm: React.FC = () => {
+export const SpeakerForm: React.FC = () => {
   const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [author, setAuthor] = useState("");
-  const [industry, setIndustry] = useState<string>("");
+  const [speaker_name, setSpeakerName] = useState("");
+  const [talk_title, setTalkTitle] = useState("");
+  const [event_name, setEventName] = useState("");
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [inserting, setInserting] = useState(false);
   const qrRef = useRef<SVGSVGElement | null>(null);
@@ -43,7 +43,7 @@ export const DeckForm: React.FC = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !author || !industry) {
+    if (!speaker_name || !talk_title || !event_name) {
       toast({ title: "Missing fields", description: "Please fill all required fields.", });
       return;
     }
@@ -52,23 +52,23 @@ export const DeckForm: React.FC = () => {
       const { data: sessionData } = await supabase.auth.getSession();
       const uid = sessionData.session?.user?.id;
       if (!uid) {
-        toast({ title: "Not authenticated", description: "Please log in to create a deck." });
+        toast({ title: "Not authenticated", description: "Please log in to create a speaker." });
         setInserting(false);
         return;
       }
-      const slug = slugify(name);
-      const { error } = await supabase.from("decks").insert({
-        name,
-        author,
-        industry,
+      const slug = slugify(talk_title);
+      const { error } = await supabase.from("speakers").insert({
+        speaker_name,
+        talk_title,
+        event_name,
         user_id: uid,
         slug,
       });
       if (error) throw error;
       setCreatedSlug(slug);
-      toast({ title: "Deck registered", description: "QR code generated below." });
+      toast({ title: "Speaker registered", description: "QR code generated below." });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to create deck." });
+      toast({ title: "Error", description: err.message || "Failed to create speaker." });
     } finally {
       setInserting(false);
     }
@@ -104,37 +104,26 @@ export const DeckForm: React.FC = () => {
   return (
     <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Register a new deck</CardTitle>
-        <CardDescription>Enter your deck details to generate a unique QR code.</CardDescription>
+        <CardTitle>Register a new speaker</CardTitle>
+        <CardDescription>Enter speaker details to generate a unique QR code for feedback.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Deck name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Label htmlFor="speaker_name">Speaker name</Label>
+            <Input id="speaker_name" value={speaker_name} onChange={(e) => setSpeakerName(e.target.value)} required />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="author">Creator / Author</Label>
-            <Input id="author" value={author} onChange={(e) => setAuthor(e.target.value)} required />
+            <Label htmlFor="talk_title">Talk title</Label>
+            <Input id="talk_title" value={talk_title} onChange={(e) => setTalkTitle(e.target.value)} required />
           </div>
           <div className="grid gap-2">
-            <Label>Industry</Label>
-            <Select value={industry} onValueChange={setIndustry}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select industry" />
-              </SelectTrigger>
-              <SelectContent>
-                {INDUSTRIES.map((ind) => (
-                  <SelectItem value={ind} key={ind}>
-                    {ind}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="event_name">Event name</Label>
+            <Input id="event_name" value={event_name} onChange={(e) => setEventName(e.target.value)} required />
           </div>
           <div className="flex items-center gap-3">
             <Button type="submit" variant="hero" disabled={inserting}>
-              {inserting ? "Creating..." : "Create deck & generate QR"}
+              {inserting ? "Creating..." : "Create speaker & generate QR"}
             </Button>
           </div>
         </form>

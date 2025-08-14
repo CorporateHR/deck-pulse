@@ -7,77 +7,80 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
-      decks: {
-        Row: {
-          author: string
-          created_at: string
-          id: string
-          industry: string
-          name: string
-          slug: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          author: string
-          created_at?: string
-          id?: string
-          industry: string
-          name: string
-          slug: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          author?: string
-          created_at?: string
-          id?: string
-          industry?: string
-          name?: string
-          slug?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       feedback: {
         Row: {
           comment: string | null
           created_at: string
-          deck_id: string
           id: string
           rating: number
+          speaker_id: string
         }
         Insert: {
           comment?: string | null
           created_at?: string
-          deck_id: string
           id?: string
           rating: number
+          speaker_id: string
         }
         Update: {
           comment?: string | null
           created_at?: string
-          deck_id?: string
           id?: string
           rating?: number
+          speaker_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "feedback_deck_id_fkey"
-            columns: ["deck_id"]
+            foreignKeyName: "feedback_speaker_id_fkey"
+            columns: ["speaker_id"]
             isOneToOne: false
-            referencedRelation: "decks"
+            referencedRelation: "speakers"
             referencedColumns: ["id"]
           },
         ]
+      }
+      speakers: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          qr_code_url: string | null
+          slug: string
+          speaker_name: string
+          talk_title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          qr_code_url?: string | null
+          slug: string
+          speaker_name: string
+          talk_title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          qr_code_url?: string | null
+          slug?: string
+          speaker_name?: string
+          talk_title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

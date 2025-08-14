@@ -11,7 +11,7 @@ const FeedbackFormPage: React.FC = () => {
   const { slug } = useParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [deck, setDeck] = useState<{ id: string; name: string; author: string; industry: string } | null>(null);
+  const [speaker, setSpeaker] = useState<{ id: string; speaker_name: string; talk_title: string; event_name: string } | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -21,11 +21,11 @@ const FeedbackFormPage: React.FC = () => {
     const load = async () => {
       if (!slug) return;
       const { data, error } = await supabase
-        .from("decks")
-        .select("id, name, author, industry")
+        .from("speakers")
+        .select("id, speaker_name, talk_title, event_name")
         .eq("slug", slug)
         .maybeSingle();
-      if (!error && data) setDeck(data);
+      if (!error && data) setSpeaker(data);
       setLoading(false);
     };
     void load();
@@ -35,7 +35,7 @@ const FeedbackFormPage: React.FC = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!deck) return;
+    if (!speaker) return;
     if (!canSubmit) {
       toast({ title: "Rating required", description: "Please select 1–5 stars." });
       return;
@@ -43,7 +43,7 @@ const FeedbackFormPage: React.FC = () => {
     setSubmitting(true);
     try {
       const { error } = await supabase.from("feedback").insert({
-        deck_id: deck.id,
+        speaker_id: speaker.id,
         rating,
         comment: comment.trim() ? comment.trim() : null,
       });
@@ -60,21 +60,21 @@ const FeedbackFormPage: React.FC = () => {
   };
 
   if (loading) return <div className="min-h-screen grid place-items-center"><p>Loading...</p></div>;
-  if (!deck) return <div className="min-h-screen grid place-items-center"><p>Deck not found.</p></div>;
+  if (!speaker) return <div className="min-h-screen grid place-items-center"><p>Speaker not found.</p></div>;
 
   return (
     <div className="min-h-screen container py-10 relative">
       <div className="pointer-events-none absolute inset-0 [background:var(--gradient-surface)]" aria-hidden />
       <div className="relative grid gap-6 max-w-2xl mx-auto">
         <header>
-          <h1 className="text-3xl font-bold">Rate this deck</h1>
+          <h1 className="text-3xl font-bold">Rate this talk</h1>
           <p className="text-muted-foreground">Your feedback is anonymous.</p>
         </header>
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">{deck.name}</CardTitle>
+            <CardTitle className="text-xl">{speaker.talk_title}</CardTitle>
             <CardDescription>
-              <span className="mr-2">{deck.author}</span> • <span className="ml-2">{deck.industry}</span>
+              <span className="mr-2">by {speaker.speaker_name}</span> • <span className="ml-2">{speaker.event_name}</span>
             </CardDescription>
           </CardHeader>
           <CardContent>
