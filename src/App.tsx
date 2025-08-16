@@ -9,6 +9,8 @@ import AuthPage from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import SpeakerResponses from "./pages/SpeakerResponses";
 import FeedbackFormPage from "./pages/FeedbackForm";
+import AppLayout from "@/components/layout/AppLayout";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +23,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
           <Route path="/speaker/:speakerId/responses" element={<SpeakerResponses />} />
           <Route path="/f/:slug" element={<FeedbackFormPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

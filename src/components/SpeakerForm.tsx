@@ -38,7 +38,8 @@ export const SpeakerForm: React.FC = () => {
   const qrRef = useRef<SVGSVGElement | null>(null);
 
   const feedbackUrl = useMemo(() => {
-    return createdSlug ? `${window.location.origin}/f/${createdSlug}` : "";
+    const baseUrl = (import.meta as any).env?.VITE_PUBLIC_SITE_URL || window.location.origin;
+    return createdSlug ? `${baseUrl}/f/${createdSlug}` : "";
   }, [createdSlug]);
 
   const onSubmit = async (e: React.FormEvent) => {
