@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SpeakerForm } from "@/components/SpeakerForm";
 import { RatingStars } from "@/components/RatingStars";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import QRCode from "react-qr-code";
 
 type Speaker = {
@@ -80,59 +80,69 @@ const Dashboard: React.FC = () => {
   const content = useMemo(() => {
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
     if (!speakers.length) return <p className="text-muted-foreground">No speakers yet. Add one above to get started.</p>;
+    
     return (
-      <div className="grid md:grid-cols-2 gap-6">
-        {speakers.map((s) => {
-          const m = metrics[s.id] || { count: 0, avg: 0, lastComments: [] };
-          const feedbackUrl = `${window.location.origin}/f/${s.slug}`;
-          return (
-            <Card key={s.id} className="overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-xl">{s.talk_title}</CardTitle>
-                <CardDescription>
-                  <span className="mr-2">by {s.speaker_name}</span> • <span className="ml-2">{s.event_name}</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Talk & Speaker</TableHead>
+            <TableHead>Event</TableHead>
+            <TableHead>Rating</TableHead>
+            <TableHead>Responses</TableHead>
+            <TableHead>QR Code</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {speakers.map((s) => {
+            const m = metrics[s.id] || { count: 0, avg: 0, lastComments: [] };
+            const feedbackUrl = `${window.location.origin}/f/${s.slug}`;
+            return (
+              <TableRow key={s.id}>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{s.talk_title}</div>
+                    <div className="text-sm text-muted-foreground">by {s.speaker_name}</div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{s.event_name}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
                     <RatingStars value={Math.round(m.avg)} readOnly />
-                    <span className="text-sm text-muted-foreground">Avg {m.avg.toFixed(2)} • {m.count} responses</span>
+                    <span className="text-sm text-muted-foreground">{m.avg.toFixed(1)}</span>
                   </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="p-2 rounded border bg-card text-foreground">
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{m.count}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="p-1 rounded border bg-card text-foreground w-fit">
                     {s.qr_code_url ? (
-                      <img src={s.qr_code_url} alt="QR Code" className="w-24 h-24" />
+                      <img src={s.qr_code_url} alt="QR Code" className="w-12 h-12" />
                     ) : (
-                      <QRCode value={feedbackUrl} size={96} bgColor="transparent" fgColor="currentColor" />
+                      <QRCode value={feedbackUrl} size={48} bgColor="transparent" fgColor="currentColor" />
                     )}
                   </div>
-                  <div className="grid gap-1">
-                    <a className="text-sm text-primary underline" href={feedbackUrl} target="_blank" rel="noreferrer">{feedbackUrl}</a>
-                    <div className="text-sm text-muted-foreground">Share this QR or link to collect feedback.</div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      View Responses
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <a href={feedbackUrl} target="_blank" rel="noreferrer">
+                        Share Link
+                      </a>
+                    </Button>
                   </div>
-                </div>
-                <div className="grid gap-2">
-                  <div className="text-sm font-medium">Recent comments</div>
-                  <div className="grid gap-2">
-                    {m.lastComments.length ? (
-                      m.lastComments.map((f, idx) => (
-                        <div key={idx} className="rounded border p-2 bg-muted/30">
-                          <div className="text-sm text-muted-foreground">{new Date(f.created_at).toLocaleString()}</div>
-                          {f.comment ? <div className="text-sm">{f.comment}</div> : <div className="text-sm text-muted-foreground">No comment</div>}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-muted-foreground">No feedback yet.</div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     );
   }, [loading, speakers, metrics]);
 
