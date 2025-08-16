@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SpeakerForm } from "@/components/SpeakerForm";
 import { RatingStars } from "@/components/RatingStars";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import QRCode from "react-qr-code";
 
 type Speaker = {
@@ -79,85 +78,128 @@ const Dashboard: React.FC = () => {
 
   const content = useMemo(() => {
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
-    if (!speakers.length) return <p className="text-muted-foreground">No speakers yet. Add one above to get started.</p>;
+    if (!speakers.length) return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground mb-4">No speakers yet. Add your first speaker above to get started!</p>
+        <p className="text-sm text-muted-foreground">Once you add a speaker, you'll see their QR code and can track feedback responses.</p>
+      </div>
+    );
     
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Talk & Speaker</TableHead>
-            <TableHead>Event</TableHead>
-            <TableHead>Rating</TableHead>
-            <TableHead>Responses</TableHead>
-            <TableHead>QR Code</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {speakers.map((s) => {
-            const m = metrics[s.id] || { count: 0, avg: 0, lastComments: [] };
-            const feedbackUrl = `${window.location.origin}/f/${s.slug}`;
-            return (
-              <TableRow key={s.id}>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{s.talk_title}</div>
-                    <div className="text-sm text-muted-foreground">by {s.speaker_name}</div>
+      <div className="grid gap-6">
+        {speakers.map((s) => {
+          const m = metrics[s.id] || { count: 0, avg: 0, lastComments: [] };
+          const feedbackUrl = `${window.location.origin}/f/${s.slug}`;
+          return (
+            <div key={s.id} className="border rounded-lg p-6 bg-card">
+              <div className="flex flex-col lg:flex-row gap-6">
+                
+                {/* Main Info */}
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold mb-2">{s.talk_title}</h3>
+                  <p className="text-muted-foreground mb-4">
+                    <span className="font-medium">Speaker:</span> {s.speaker_name} • 
+                    <span className="font-medium ml-2">Event:</span> {s.event_name}
+                  </p>
+                  
+                  {/* Rating & Stats */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <RatingStars value={Math.round(m.avg)} readOnly />
+                      <span className="font-semibold">{m.avg.toFixed(1)}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {m.count} response{m.count !== 1 ? 's' : ''}
+                    </div>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm">{s.event_name}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <RatingStars value={Math.round(m.avg)} readOnly />
-                    <span className="text-sm text-muted-foreground">{m.avg.toFixed(1)}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm">{m.count}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="p-1 rounded border bg-card text-foreground w-fit">
-                    {s.qr_code_url ? (
-                      <img src={s.qr_code_url} alt="QR Code" className="w-12 h-12" />
-                    ) : (
-                      <QRCode value={feedbackUrl} size={48} bgColor="transparent" fgColor="currentColor" />
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
+                  
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-3">
                     <Button 
-                      variant="outline" 
+                      variant="default" 
                       size="sm"
                       onClick={() => navigate(`/speaker/${s.id}/responses`)}
+                      className="flex-1 sm:flex-none"
                     >
-                      View Responses
+                      View All Responses
                     </Button>
-                    <Button variant="ghost" size="sm" asChild>
+                    <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-none">
                       <a href={feedbackUrl} target="_blank" rel="noreferrer">
-                        Share Link
+                        Share Feedback Link
                       </a>
                     </Button>
                   </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                </div>
+                
+                {/* QR Code Section */}
+                <div className="lg:w-48 flex flex-col items-center">
+                  <div className="p-3 rounded-lg border bg-background mb-3">
+                    {s.qr_code_url ? (
+                      <img src={s.qr_code_url} alt="QR Code" className="w-32 h-32" />
+                    ) : (
+                      <QRCode value={feedbackUrl} size={128} bgColor="transparent" fgColor="currentColor" />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Scan to leave feedback
+                  </p>
+                </div>
+              </div>
+              
+              {/* Recent Comments Preview */}
+              {m.lastComments.length > 0 && (
+                <div className="mt-6 pt-6 border-t">
+                  <h4 className="font-medium mb-3">Recent Feedback</h4>
+                  <div className="grid gap-3">
+                    {m.lastComments.slice(0, 2).map((f, idx) => (
+                      <div key={idx} className="bg-muted/30 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <RatingStars value={f.rating} readOnly />
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(f.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {f.comment ? (
+                          <p className="text-sm line-clamp-2">{f.comment}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">No comment</p>
+                        )}
+                      </div>
+                    ))}
+                    {m.lastComments.length > 2 && (
+                      <button 
+                        onClick={() => navigate(`/speaker/${s.id}/responses`)}
+                        className="text-sm text-primary hover:underline text-left"
+                      >
+                        View all {m.count} responses →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     );
-  }, [loading, speakers, metrics]);
+  }, [loading, speakers, metrics, navigate]);
 
   return (
-    <div className="min-h-screen container py-10 grid gap-8">
-      <header>
-        <h1 className="text-3xl font-bold">Your Speakers & Feedback</h1>
-        <p className="text-muted-foreground">Register speakers, generate QR codes, and review feedback in one place.</p>
+    <div className="min-h-screen container max-w-6xl py-10 grid gap-8">
+      <header className="text-center">
+        <h1 className="text-3xl font-bold mb-2">Speaker Feedback Dashboard</h1>
+        <p className="text-muted-foreground">Manage your speakers, generate QR codes, and track feedback responses</p>
       </header>
-      <SpeakerForm />
-      {content}
+      
+      <div className="bg-muted/30 rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">Add New Speaker</h2>
+        <SpeakerForm />
+      </div>
+      
+      <div>
+        <h2 className="text-2xl font-semibold mb-6">Your Speakers</h2>
+        {content}
+      </div>
     </div>
   );
 };
