@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import SpeakerResponses from "./pages/SpeakerResponses";
 import FeedbackFormPage from "./pages/FeedbackForm";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/speaker/:speakerId/responses" element={<SpeakerResponses />} />
           <Route path="/f/:slug" element={<FeedbackFormPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

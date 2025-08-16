@@ -128,7 +128,11 @@ const Dashboard: React.FC = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/speaker/${s.id}/responses`)}
+                    >
                       View Responses
                     </Button>
                     <Button variant="ghost" size="sm" asChild>
