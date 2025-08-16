@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SpeakerForm } from "@/components/SpeakerForm";
 import { RatingStars } from "@/components/RatingStars";
+import { useToast } from "@/hooks/use-toast";
 import QRCode from "react-qr-code";
 
 type Speaker = {
@@ -23,6 +24,7 @@ type Feedback = {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Record<string, { count: number; avg: number; lastComments: Feedback[] }>>({});
@@ -76,6 +78,61 @@ const Dashboard: React.FC = () => {
     if (speakers.length) void loadMetrics();
   }, [speakers]);
 
+  const handleShareFeedback = async (speaker: Speaker, feedbackUrl: string) => {
+    try {
+      // Generate QR code as PNG
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const size = 256;
+      canvas.width = size;
+      canvas.height = size;
+      
+      if (ctx) {
+        // Create QR code SVG
+        const qrSvg = document.createElement('div');
+        qrSvg.innerHTML = `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:white;"><div style="padding:20px;">${document.querySelector('.qr-code-container')?.innerHTML || ''}</div></div></foreignObject></svg>`;
+        
+        // Convert to base64
+        const svgData = new XMLSerializer().serializeToString(qrSvg.firstChild as Element);
+        const img = new Image();
+        img.onload = async () => {
+          ctx.drawImage(img, 0, 0, size, size);
+          const pngData = canvas.toDataURL('image/png');
+          
+          // Send webhook
+          const webhookData = {
+            speaker_name: speaker.speaker_name,
+            talk_title: speaker.talk_title,
+            event_name: speaker.event_name,
+            feedback_url: feedbackUrl,
+            responses_url: `${window.location.origin}/speaker/${speaker.id}/responses`,
+            qr_code_png: pngData,
+            timestamp: new Date().toISOString()
+          };
+
+          await fetch('https://n8n.quickly4u.com/webhook/ad2f28be-c5b6-4de8-b8f7-3aee0479c218', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            mode: 'no-cors',
+            body: JSON.stringify(webhookData)
+          });
+
+          toast({
+            title: "Shared Successfully",
+            description: "Feedback link and QR code have been shared via webhook."
+          });
+        };
+        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to share feedback link.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const content = useMemo(() => {
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
     if (!speakers.length) return (
@@ -123,17 +180,20 @@ const Dashboard: React.FC = () => {
                     >
                       View All Responses
                     </Button>
-                    <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-none">
-                      <a href={feedbackUrl} target="_blank" rel="noreferrer">
-                        Share Feedback Link
-                      </a>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 sm:flex-none"
+                      onClick={() => handleShareFeedback(s, feedbackUrl)}
+                    >
+                      Share Feedback Link
                     </Button>
                   </div>
                 </div>
                 
                 {/* QR Code Section */}
                 <div className="lg:w-48 flex flex-col items-center">
-                  <div className="p-3 rounded-lg border bg-background mb-3">
+                  <div className="p-3 rounded-lg border bg-background mb-3 qr-code-container">
                     {s.qr_code_url ? (
                       <img src={s.qr_code_url} alt="QR Code" className="w-32 h-32" />
                     ) : (
