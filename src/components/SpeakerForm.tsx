@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { nanoid } from "nanoid";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,9 @@ export const SpeakerForm: React.FC = () => {
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [inserting, setInserting] = useState(false);
   const qrRef = useRef<SVGSVGElement | null>(null);
+  const [createdSpeakerId, setCreatedSpeakerId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const uploadedOnceRef = useRef(false);
 
   const feedbackUrl = useMemo(() => {
     const baseUrl = (import.meta as any).env?.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -49,6 +52,7 @@ export const SpeakerForm: React.FC = () => {
       return;
     }
     setInserting(true);
+    uploadedOnceRef.current = false; // reset for a new creation flow
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const uid = sessionData.session?.user?.id;
@@ -57,6 +61,7 @@ export const SpeakerForm: React.FC = () => {
         setInserting(false);
         return;
       }
+      setCurrentUserId(uid);
       
       const slug = slugify(talk_title);
       
@@ -70,34 +75,10 @@ export const SpeakerForm: React.FC = () => {
       }).select().single();
 
       if (insertError) throw insertError;
-      
-      // Generate QR code and upload to storage
-      const feedbackUrl = `${window.location.origin}/f/${slug}`;
-      const { data: sessionToken } = await supabase.auth.getSession();
-      
-      try {
-        const response = await fetch('/functions/v1/generate-qr', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionToken.session?.access_token}`,
-          },
-          body: JSON.stringify({
-            speakerId: speakerData.id,
-            feedbackUrl,
-            userId: uid,
-          }),
-        });
-
-        if (!response.ok) {
-          console.warn('QR code generation failed, but speaker was created');
-        }
-      } catch (qrError) {
-        console.warn('QR code generation failed:', qrError);
-      }
-      
+      // Save for client-side QR generation and upload
+      setCreatedSpeakerId(speakerData.id);
       setCreatedSlug(slug);
-      toast({ title: "Speaker registered", description: "QR code generated and saved to storage." });
+      toast({ title: "Speaker registered", description: "Generating and saving QR code..." });
       
       // Reset form
       setSpeakerName("");
@@ -110,6 +91,83 @@ export const SpeakerForm: React.FC = () => {
       setInserting(false);
     }
   };
+
+  // Convert the rendered SVG QR (via ref) to a PNG Blob
+  const svgToPngBlob = (svgEl: SVGSVGElement, size = 1024): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svgEl);
+        const img = new Image();
+        // Ensure crisp rendering on canvas
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            URL.revokeObjectURL(url);
+            reject(new Error("Canvas context not available"));
+            return;
+          }
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, size, size);
+          ctx.drawImage(img, 0, 0, size, size);
+          URL.revokeObjectURL(url);
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error("Failed to create PNG blob"));
+            resolve(blob);
+          }, "image/png");
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("Failed to load SVG as image"));
+        };
+        img.src = url;
+      } catch (e) {
+        reject(e);
+      }
+    });
+  };
+
+  // Once QR is rendered (after createdSlug is set), generate PNG and upload to Storage, then update DB
+  useEffect(() => {
+    const run = async () => {
+      if (uploadedOnceRef.current) return;
+      if (!createdSlug || !createdSpeakerId || !currentUserId) return;
+      const svg = qrRef.current;
+      if (!svg) return;
+      uploadedOnceRef.current = true; // prevent duplicates
+      try {
+        const pngBlob = await svgToPngBlob(svg);
+        const path = `${currentUserId}/${createdSpeakerId}.png`;
+        const { error: uploadError } = await supabase.storage
+          .from('qr-codes')
+          .upload(path, pngBlob, { contentType: 'image/png', upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('qr-codes')
+          .getPublicUrl(path);
+        const publicUrl = publicUrlData.publicUrl;
+
+        const { error: updateError } = await supabase
+          .from('speakers')
+          .update({ qr_code_url: publicUrl })
+          .eq('id', createdSpeakerId);
+        if (updateError) throw updateError;
+
+        toast({ title: 'QR saved', description: 'QR code uploaded to storage and linked to the speaker.' });
+      } catch (err: any) {
+        console.warn('Client-side QR upload failed:', err);
+        toast({ title: 'QR upload failed', description: err.message || 'Could not save QR to storage.', variant: 'destructive' });
+      }
+    };
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createdSlug, createdSpeakerId, currentUserId]);
 
   const downloadPng = () => {
     const svg = qrRef.current;
@@ -133,6 +191,33 @@ export const SpeakerForm: React.FC = () => {
       const a = document.createElement("a");
       a.download = `${createdSlug}-qr.png`;
       a.href = canvas.toDataURL("image/png");
+      a.click();
+    };
+    img.src = url;
+  };
+
+  const downloadJpeg = () => {
+    const svg = qrRef.current;
+    if (!svg || !feedbackUrl) return;
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    img.onload = () => {
+      const size = 1024;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = "#ffffff"; // white background for JPEG
+      ctx.fillRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      const a = document.createElement("a");
+      a.download = `${createdSlug}-qr.jpg`;
+      a.href = canvas.toDataURL("image/jpeg", 0.92);
       a.click();
     };
     img.src = url;
@@ -188,6 +273,7 @@ export const SpeakerForm: React.FC = () => {
               </div>
               <div className="grid gap-2">
                 <Button type="button" onClick={downloadPng}>Download QR as PNG</Button>
+                <Button type="button" variant="outline" onClick={downloadJpeg}>Download QR as JPEG</Button>
                 <Button asChild variant="outline">
                   <a href={feedbackUrl} target="_blank" rel="noreferrer">Open feedback form</a>
                 </Button>
