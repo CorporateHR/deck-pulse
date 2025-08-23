@@ -97,14 +97,16 @@ const Dashboard: React.FC = () => {
         const img = new Image();
         img.onload = async () => {
           ctx.drawImage(img, 0, 0, size, size);
-          const pngData = canvas.toDataURL('image/png');
+          const pngDataUrl = canvas.toDataURL('image/png');
+          // Extract base64 string from data URL
+          const base64String = pngDataUrl.split(',')[1];
           
-          // Send only QR code PNG to webhook
+          // Send only QR code base64 to webhook
           await fetch('https://n8n.quickly4u.com/webhook/ad2f28be-c5b6-4de8-b8f7-3aee0479c218', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             mode: 'no-cors',
-            body: JSON.stringify({ qr_code_png: pngData })
+            body: JSON.stringify({ qr_code_png: base64String })
           });
 
           toast({
