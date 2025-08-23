@@ -99,22 +99,12 @@ const Dashboard: React.FC = () => {
           ctx.drawImage(img, 0, 0, size, size);
           const pngData = canvas.toDataURL('image/png');
           
-          // Send webhook
-          const webhookData = {
-            speaker_name: speaker.speaker_name,
-            talk_title: speaker.talk_title,
-            event_name: speaker.event_name,
-            feedback_url: feedbackUrl,
-            responses_url: `${window.location.origin}/speaker/${speaker.id}/responses`,
-            qr_code_png: pngData,
-            timestamp: new Date().toISOString()
-          };
-
+          // Send only QR code PNG to webhook
           await fetch('https://n8n.quickly4u.com/webhook/ad2f28be-c5b6-4de8-b8f7-3aee0479c218', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             mode: 'no-cors',
-            body: JSON.stringify(webhookData)
+            body: JSON.stringify({ qr_code_png: pngData })
           });
 
           toast({
