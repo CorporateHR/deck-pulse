@@ -235,14 +235,16 @@ const Dashboard: React.FC = () => {
                     >
                       View All Responses
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
                       className="flex-1 sm:flex-none"
-                      onClick={() => navigate(`/feedback/${s.slug}`)}
                     >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Public View
+                      <a href={`/feedback/${s.slug}`} target="_blank" rel="noreferrer">
+                        <Eye className="w-4 h-4 mr-2" />
+                        Public View
+                      </a>
                     </Button>
                     <Button 
                       variant="outline" 

@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RatingStars } from "@/components/RatingStars";
 
@@ -122,13 +122,6 @@ const PublicFeedback = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
-          <Button variant="ghost" asChild className="mb-4">
-            <Link to="/">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Link>
-          </Button>
-          
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2">{speaker.talk_title}</h1>
             <p className="text-xl text-muted-foreground mb-1">by {speaker.speaker_name}</p>
