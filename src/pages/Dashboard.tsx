@@ -51,7 +51,7 @@ const Dashboard: React.FC = () => {
         .select("id, speaker_name, email, talk_title, event_name, slug, qr_code_url")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
-      if (!error && data) setSpeakers(data as Speaker[]);
+      if (!error && data) setSpeakers(data as unknown as Speaker[]);
       setLoading(false);
     });
     return () => subscription.unsubscribe();
@@ -105,24 +105,15 @@ const Dashboard: React.FC = () => {
             // Extract base64 string from data URL
             const base64String = pngDataUrl.split(',')[1];
             
-            // Send structured payload to webhook
-            await fetch('https://n8n.quickly4u.com/webhook/ad2f28be-c5b6-4de8-b8f7-3aee0479c218', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              mode: 'no-cors',
-              body: JSON.stringify({
-                qr_code: { png_base64: base64String },
-                speaker: {
-                  name: speaker.speaker_name,
-                  email: speaker.email ?? null
-                },
-                event: {
-                  name: speaker.event_name
-                },
-                links: {
-                  public_feedback_url: feedbackUrl
-                }
-              })
+            // Send via Supabase Edge Function to avoid no-cors and ensure JSON at n8n
+            await supabase.functions.invoke('forward-webhook', {
+              body: [
+                { type: 'qr_code_png', value: base64String },
+                { type: 'name', value: speaker.speaker_name },
+                { type: 'email', value: speaker.email ?? null },
+                { type: 'event_name', value: speaker.event_name },
+                { type: 'public_feedback_url', value: feedbackUrl }
+              ]
             });
 
             toast({
