@@ -90,39 +90,78 @@ const Dashboard: React.FC = () => {
       canvas.height = size;
       
       if (ctx) {
-        // Create QR code SVG
-        const qrElement = document.querySelector(`[data-qr-id="${speaker.id}"] svg`) as SVGElement;
-        if (qrElement) {
-          const svgData = new XMLSerializer().serializeToString(qrElement);
-          const img = new Image();
-          img.onload = async () => {
-            // White background
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, size, size);
-            // Draw QR code
-            ctx.drawImage(img, 0, 0, size, size);
-            const pngDataUrl = canvas.toDataURL('image/png');
-            // Extract base64 string from data URL
-            const base64String = pngDataUrl.split(',')[1];
-            
-            // Send via Supabase Edge Function to avoid no-cors and ensure JSON at n8n
-            await supabase.functions.invoke('forward-webhook', {
-              body: [
-                { type: 'qr_code_png', value: base64String },
-                { type: 'name', value: speaker.speaker_name },
-                { type: 'email', value: speaker.email ?? null },
-                { type: 'event_name', value: speaker.event_name },
-                { type: 'public_feedback_url', value: feedbackUrl }
-              ]
-            });
-
-            toast({
-              title: "Shared Successfully",
-              description: "Feedback link and QR code have been shared via webhook."
-            });
-          };
-          img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+        // Find QR container and either inline SVG or stored IMG
+        let container = document.querySelector(`[data-qr-id="${speaker.id}"]`) as HTMLElement | null;
+        for (let i = 0; i < 10 && !container; i++) { // retry up to ~1s
+          await new Promise((r) => setTimeout(r, 100));
+          container = document.querySelector(`[data-qr-id="${speaker.id}"]`) as HTMLElement | null;
         }
+        if (!container) {
+          toast({ title: "QR not ready", description: "QR container not found.", variant: "destructive" });
+          return;
+        }
+
+        let svgEl = container.querySelector('svg') as SVGElement | null;
+        let imgEl = container.querySelector('img') as HTMLImageElement | null;
+        // If neither present yet, retry briefly
+        if (!svgEl && !imgEl) {
+          for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+            svgEl = container.querySelector('svg') as SVGElement | null;
+            imgEl = container.querySelector('img') as HTMLImageElement | null;
+            if (svgEl || imgEl) break;
+          }
+        }
+
+        const drawAndSend = async (image: HTMLImageElement) => {
+          // White background
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, size, size);
+          // Draw QR code
+          ctx.drawImage(image, 0, 0, size, size);
+          const pngDataUrl = canvas.toDataURL('image/png');
+          const base64String = pngDataUrl.split(',')[1];
+          const viewUrl = `${window.location.origin}/feedback/${speaker.slug}`;
+
+          const { error } = await supabase.functions.invoke('forward-webhook', {
+            body: [
+              { type: 'qr_code_png', value: base64String },
+              { type: 'name', value: speaker.speaker_name },
+              { type: 'email', value: speaker.email ?? null },
+              { type: 'event_name', value: speaker.event_name },
+              { type: 'collect_feedback_url', value: feedbackUrl },
+              { type: 'feedback_view_url', value: viewUrl }
+            ]
+          });
+          if (error) {
+            toast({ title: 'Error', description: 'Failed to send to webhook.', variant: 'destructive' });
+            return;
+          }
+          toast({ title: 'Shared Successfully', description: 'Feedback link and QR code have been shared via webhook.' });
+        };
+
+        if (svgEl) {
+          const svgData = new XMLSerializer().serializeToString(svgEl);
+          const tempImg = new Image();
+          tempImg.onload = () => drawAndSend(tempImg);
+          tempImg.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+          return;
+        }
+
+        if (imgEl) {
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous'; // allow canvas draw from public storage
+          tempImg.onload = () => drawAndSend(tempImg);
+          tempImg.onerror = () => toast({ title: 'Error', description: 'Failed to load QR image.', variant: 'destructive' });
+          tempImg.src = imgEl.src;
+          return;
+        }
+
+        toast({
+          title: "QR not ready",
+          description: "QR code is still rendering. Please try again in a moment.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       toast({
@@ -205,7 +244,8 @@ const Dashboard: React.FC = () => {
       <div className="grid gap-6">
         {speakers.map((s) => {
           const m = metrics[s.id] || { count: 0, avg: 0, lastComments: [] };
-          const feedbackUrl = `${window.location.origin}/f/${s.slug}`;
+          const collectUrl = `${window.location.origin}/f/${s.slug}`; // For attendees to submit feedback
+          const viewUrl = `${window.location.origin}/feedback/${s.slug}`; // For viewing feedback (public page)
           return (
             <div key={s.id} className="border rounded-lg p-6 bg-card">
               <div className="flex flex-col lg:flex-row gap-6">
@@ -255,7 +295,7 @@ const Dashboard: React.FC = () => {
                       variant="outline" 
                       size="sm" 
                       className="flex-1 sm:flex-none"
-                      onClick={() => handleShareFeedback(s, feedbackUrl)}
+                      onClick={() => handleShareFeedback(s, collectUrl)}
                     >
                       Share QR Code
                     </Button>
@@ -268,7 +308,7 @@ const Dashboard: React.FC = () => {
                     {s.qr_code_url ? (
                       <img src={s.qr_code_url} alt="QR Code" className="w-32 h-32" />
                     ) : (
-                      <QRCode value={feedbackUrl} size={128} bgColor="transparent" fgColor="currentColor" />
+                      <QRCode value={collectUrl} size={128} bgColor="transparent" fgColor="currentColor" />
                     )}
                   </div>
                   <div className="flex gap-2">
