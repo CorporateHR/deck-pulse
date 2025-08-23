@@ -5,19 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Upload, FileText, User } from "lucide-react";
 
-const INDUSTRIES = [
-  "Technology",
-  "Marketing",
-  "Finance",
-  "Healthcare",
-  "Education",
-  "Consulting",
-  "Other",
-];
+type SpeakerData = {
+  speaker_name: string;
+  email: string;
+  talk_title: string;
+  event_name: string;
+};
 
 function slugify(input: string) {
   const base = input
@@ -31,8 +30,11 @@ function slugify(input: string) {
 export const SpeakerForm: React.FC = () => {
   const { toast } = useToast();
   const [speaker_name, setSpeakerName] = useState("");
+  const [email, setEmail] = useState("");
   const [talk_title, setTalkTitle] = useState("");
   const [event_name, setEventName] = useState("");
+  const [csvData, setCsvData] = useState("");
+  const [activeTab, setActiveTab] = useState("single");
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [inserting, setInserting] = useState(false);
   const qrRef = useRef<SVGSVGElement | null>(null);
@@ -45,9 +47,9 @@ export const SpeakerForm: React.FC = () => {
     return createdSlug ? `${baseUrl}/f/${createdSlug}` : "";
   }, [createdSlug]);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmitSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!speaker_name || !talk_title || !event_name) {
+    if (!speaker_name || !talk_title || !event_name || !email) {
       toast({ title: "Missing fields", description: "Please fill all required fields.", });
       return;
     }
@@ -68,6 +70,7 @@ export const SpeakerForm: React.FC = () => {
       // First create the speaker record
       const { data: speakerData, error: insertError } = await supabase.from("speakers").insert({
         speaker_name,
+        email,
         talk_title,
         event_name,
         user_id: uid,
@@ -82,11 +85,110 @@ export const SpeakerForm: React.FC = () => {
       
       // Reset form
       setSpeakerName("");
+      setEmail("");
       setTalkTitle("");
       setEventName("");
       
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to create speaker." });
+    } finally {
+      setInserting(false);
+    }
+  };
+
+  const parseCsvData = (csvText: string): SpeakerData[] => {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) {
+      throw new Error("CSV must have at least a header row and one data row");
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const requiredHeaders = ['speaker_name', 'email', 'talk_title', 'event_name'];
+    
+    // Check if all required headers are present
+    const missingHeaders = requiredHeaders.filter(header => !headers.includes(header));
+    if (missingHeaders.length > 0) {
+      throw new Error(`Missing required columns: ${missingHeaders.join(', ')}`);
+    }
+
+    const speakers: SpeakerData[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      if (values.length !== headers.length) {
+        throw new Error(`Row ${i + 1} has incorrect number of columns`);
+      }
+
+      const speaker: SpeakerData = {
+        speaker_name: '',
+        email: '',
+        talk_title: '',
+        event_name: ''
+      };
+
+      headers.forEach((header, index) => {
+        if (requiredHeaders.includes(header)) {
+          speaker[header as keyof SpeakerData] = values[index];
+        }
+      });
+
+      // Validate required fields
+      if (!speaker.speaker_name || !speaker.email || !speaker.talk_title || !speaker.event_name) {
+        throw new Error(`Row ${i + 1} is missing required data`);
+      }
+
+      speakers.push(speaker);
+    }
+
+    return speakers;
+  };
+
+  const onSubmitCsv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!csvData.trim()) {
+      toast({ title: "Missing CSV data", description: "Please paste your CSV data." });
+      return;
+    }
+
+    setInserting(true);
+    uploadedOnceRef.current = false;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData.session?.user?.id;
+      if (!uid) {
+        toast({ title: "Not authenticated", description: "Please log in to create speakers." });
+        setInserting(false);
+        return;
+      }
+      setCurrentUserId(uid);
+
+      // Parse CSV data
+      const speakers = parseCsvData(csvData);
+      
+      // Create speakers with slugs
+      const speakersToInsert = speakers.map(speaker => ({
+        ...speaker,
+        user_id: uid,
+        slug: slugify(speaker.talk_title),
+      }));
+
+      const { data: insertedSpeakers, error: insertError } = await supabase
+        .from("speakers")
+        .insert(speakersToInsert)
+        .select();
+
+      if (insertError) throw insertError;
+
+      toast({ 
+        title: "Speakers created", 
+        description: `Successfully created ${insertedSpeakers.length} speakers.` 
+      });
+      
+      // Reset form
+      setCsvData("");
+      
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to create speakers." });
     } finally {
       setInserting(false);
     }
@@ -226,29 +328,88 @@ export const SpeakerForm: React.FC = () => {
   return (
     <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Register a new speaker</CardTitle>
-        <CardDescription>Enter speaker details to generate a unique QR code for feedback.</CardDescription>
+        <CardTitle>Register speakers</CardTitle>
+        <CardDescription>Add speakers individually or upload multiple speakers via CSV.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="speaker_name">Speaker name</Label>
-            <Input id="speaker_name" value={speaker_name} onChange={(e) => setSpeakerName(e.target.value)} required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="talk_title">Talk title</Label>
-            <Input id="talk_title" value={talk_title} onChange={(e) => setTalkTitle(e.target.value)} required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="event_name">Event name</Label>
-            <Input id="event_name" value={event_name} onChange={(e) => setEventName(e.target.value)} required />
-          </div>
-          <div className="flex items-center gap-3">
-            <Button type="submit" variant="hero" disabled={inserting}>
-              {inserting ? "Creating..." : "Create speaker & generate QR"}
-            </Button>
-          </div>
-        </form>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="single" className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Single Speaker
+            </TabsTrigger>
+            <TabsTrigger value="csv" className="flex items-center gap-2">
+              <Upload className="w-4 h-4" />
+              CSV Upload
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="single" className="mt-6">
+            <form onSubmit={onSubmitSingle} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="speaker_name">Speaker name</Label>
+                <Input id="speaker_name" value={speaker_name} onChange={(e) => setSpeakerName(e.target.value)} required />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="talk_title">Talk title</Label>
+                <Input id="talk_title" value={talk_title} onChange={(e) => setTalkTitle(e.target.value)} required />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="event_name">Event name</Label>
+                <Input id="event_name" value={event_name} onChange={(e) => setEventName(e.target.value)} required />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button type="submit" variant="hero" disabled={inserting}>
+                  {inserting ? "Creating..." : "Create speaker & generate QR"}
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="csv" className="mt-6">
+            <div className="space-y-4">
+              <div className="bg-muted/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <h4 className="font-medium mb-2">CSV Format Requirements</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Your CSV must include these columns (in any order):
+                    </p>
+                    <div className="bg-background rounded border p-3 font-mono text-xs">
+                      speaker_name,email,talk_title,event_name<br/>
+                      John Doe,john@example.com,AI in Healthcare,Tech Conference 2024<br/>
+                      Jane Smith,jane@example.com,Future of Web Development,DevCon 2024
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <form onSubmit={onSubmitCsv} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="csv_data">CSV Data</Label>
+                  <Textarea 
+                    id="csv_data" 
+                    value={csvData} 
+                    onChange={(e) => setCsvData(e.target.value)} 
+                    placeholder="Paste your CSV data here..."
+                    rows={8}
+                    required 
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button type="submit" variant="hero" disabled={inserting}>
+                    {inserting ? "Creating speakers..." : "Create speakers from CSV"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {createdSlug && (
           <div className="mt-8 grid gap-4">

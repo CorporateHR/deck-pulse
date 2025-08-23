@@ -11,6 +11,7 @@ import { Download, Eye } from "lucide-react";
 type Speaker = {
   id: string;
   speaker_name: string;
+  email?: string;
   talk_title: string;
   event_name: string;
   slug: string;
@@ -47,7 +48,7 @@ const Dashboard: React.FC = () => {
       }
       const { data, error } = await supabase
         .from("speakers")
-        .select("id, speaker_name, talk_title, event_name, slug, qr_code_url")
+        .select("id, speaker_name, email, talk_title, event_name, slug, qr_code_url")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (!error && data) setSpeakers(data as Speaker[]);
@@ -210,7 +211,8 @@ const Dashboard: React.FC = () => {
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold mb-2">{s.talk_title}</h3>
                   <p className="text-muted-foreground mb-4">
-                    <span className="font-medium">Speaker:</span> {s.speaker_name} • 
+                    <span className="font-medium">Speaker:</span> {s.speaker_name}
+                    {s.email && <span className="text-sm"> ({s.email})</span>} • 
                     <span className="font-medium ml-2">Event:</span> {s.event_name}
                   </p>
                   

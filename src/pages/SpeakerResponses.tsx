@@ -9,6 +9,7 @@ import { ArrowLeft, Users, MessageCircle, TrendingUp } from "lucide-react";
 type Speaker = {
   id: string;
   speaker_name: string;
+  email?: string;
   talk_title: string;
   event_name: string;
   slug: string;
@@ -43,7 +44,7 @@ const SpeakerResponses: React.FC = () => {
       // Fetch speaker info
       const { data: speakerData, error: speakerError } = await supabase
         .from("speakers")
-        .select("id, speaker_name, talk_title, event_name, slug")
+        .select("id, speaker_name, email, talk_title, event_name, slug")
         .eq("id", speakerId)
         .eq("user_id", session.user.id)
         .single();
@@ -135,7 +136,8 @@ const SpeakerResponses: React.FC = () => {
           <div className="flex-1">
             <h1 className="text-3xl font-bold tracking-tight mb-2">{speaker.talk_title}</h1>
             <p className="text-lg text-muted-foreground">
-              <span className="font-medium">{speaker.speaker_name}</span> • {speaker.event_name}
+              <span className="font-medium">{speaker.speaker_name}</span>
+              {speaker.email && <span className="text-sm"> ({speaker.email})</span>} • {speaker.event_name}
             </p>
           </div>
         </div>
