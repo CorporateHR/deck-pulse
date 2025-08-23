@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, User } from "lucide-react";
+import { Upload, FileText, User, Download } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type SpeakerData = {
   speaker_name: string;
@@ -17,6 +18,14 @@ type SpeakerData = {
   talk_title: string;
   event_name: string;
 };
+
+const requiredHeaders = [
+  'speaker_name',
+  'email',
+  'talk_title',
+  'event_name',
+] as const;
+type RequiredHeader = typeof requiredHeaders[number];
 
 function slugify(input: string) {
   const base = input
@@ -41,6 +50,13 @@ export const SpeakerForm: React.FC = () => {
   const [createdSpeakerId, setCreatedSpeakerId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const uploadedOnceRef = useRef(false);
+  const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
+  const [headerMapping, setHeaderMapping] = useState<Record<RequiredHeader, string>>({
+    speaker_name: "",
+    email: "",
+    talk_title: "",
+    event_name: "",
+  });
 
   const feedbackUrl = useMemo(() => {
     const baseUrl = (import.meta as any).env?.VITE_PUBLIC_SITE_URL || window.location.origin;
@@ -96,50 +112,85 @@ export const SpeakerForm: React.FC = () => {
     }
   };
 
-  const parseCsvData = (csvText: string): SpeakerData[] => {
-    const lines = csvText.trim().split('\n');
+  const parseCsvData = (csvText: string, mapping?: Partial<Record<RequiredHeader, string>>): SpeakerData[] => {
+    const lines = csvText.trim().split('\n').filter(l => l.trim().length > 0);
     if (lines.length < 2) {
       throw new Error("CSV must have at least a header row and one data row");
     }
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const requiredHeaders = ['speaker_name', 'email', 'talk_title', 'event_name'];
-    
-    // Check if all required headers are present
-    const missingHeaders = requiredHeaders.filter(header => !headers.includes(header));
-    if (missingHeaders.length > 0) {
-      throw new Error(`Missing required columns: ${missingHeaders.join(', ')}`);
+    const detectedHeaders = lines[0].split(',').map(h => h.trim());
+
+    const useMapping = !!mapping && requiredHeaders.every((k) => (mapping[k] ?? "") !== "");
+
+    // Build index map
+    const headerIndex: Record<RequiredHeader, number> = {
+      speaker_name: -1,
+      email: -1,
+      talk_title: -1,
+      event_name: -1,
+    };
+
+    if (useMapping) {
+      for (const key of requiredHeaders) {
+        const targetHeader = (mapping as Record<RequiredHeader, string>)[key];
+        const idx = detectedHeaders.findIndex(h => h.toLowerCase() === targetHeader.toLowerCase());
+        if (idx === -1) {
+          throw new Error(`Mapped column \"${targetHeader}\" not found in CSV`);
+        }
+        headerIndex[key] = idx;
+      }
+    } else {
+      // Fallback: expect required headers present in any order
+      const lower = detectedHeaders.map(h => h.toLowerCase());
+      const missing = requiredHeaders.filter(h => !lower.includes(h));
+      if (missing.length > 0) {
+        throw new Error(`Missing required columns: ${missing.join(', ')}`);
+      }
+      for (const key of requiredHeaders) {
+        headerIndex[key] = lower.indexOf(key);
+      }
     }
 
     const speakers: SpeakerData[] = [];
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
-      if (values.length !== headers.length) {
+      if (values.length < detectedHeaders.length) {
         throw new Error(`Row ${i + 1} has incorrect number of columns`);
       }
-
       const speaker: SpeakerData = {
-        speaker_name: '',
-        email: '',
-        talk_title: '',
-        event_name: ''
+        speaker_name: values[headerIndex.speaker_name] ?? "",
+        email: values[headerIndex.email] ?? "",
+        talk_title: values[headerIndex.talk_title] ?? "",
+        event_name: values[headerIndex.event_name] ?? "",
       };
-
-      headers.forEach((header, index) => {
-        if (requiredHeaders.includes(header)) {
-          speaker[header as keyof SpeakerData] = values[index];
-        }
-      });
-
-      // Validate required fields
       if (!speaker.speaker_name || !speaker.email || !speaker.talk_title || !speaker.event_name) {
         throw new Error(`Row ${i + 1} is missing required data`);
       }
-
       speakers.push(speaker);
     }
-
     return speakers;
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast({ title: 'Invalid file', description: 'Please upload a .csv file.' });
+      return;
+    }
+    const text = await file.text();
+    setCsvData(text);
+    const firstLine = text.trim().split('\n')[0] ?? '';
+    const headers = firstLine.split(',').map(h => h.trim()).filter(Boolean);
+    setAvailableHeaders(headers);
+    const initial: Record<RequiredHeader, string> = {
+      speaker_name: headers.includes('speaker_name') ? 'speaker_name' : '',
+      email: headers.includes('email') ? 'email' : '',
+      talk_title: headers.includes('talk_title') ? 'talk_title' : '',
+      event_name: headers.includes('event_name') ? 'event_name' : '',
+    };
+    setHeaderMapping(initial);
+    setActiveTab('csv');
   };
 
   const onSubmitCsv = async (e: React.FormEvent) => {
@@ -162,8 +213,8 @@ export const SpeakerForm: React.FC = () => {
       }
       setCurrentUserId(uid);
 
-      // Parse CSV data
-      const speakers = parseCsvData(csvData);
+      // Parse CSV data (use mapping if provided)
+      const speakers = parseCsvData(csvData, headerMapping);
       
       // Create speakers with slugs
       const speakersToInsert = speakers.map(speaker => ({
@@ -385,8 +436,67 @@ export const SpeakerForm: React.FC = () => {
                       John Doe,john@example.com,AI in Healthcare,Tech Conference 2024<br/>
                       Jane Smith,jane@example.com,Future of Web Development,DevCon 2024
                     </div>
+                    <div className="mt-3">
+                      <Button variant="outline" size="sm" asChild>
+                        <a href="/sample-speakers.csv" download className="flex items-center gap-2">
+                          <Download className="w-4 h-4" />
+                          Download sample CSV
+                        </a>
+                      </Button>
+                    </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="csv_file">Upload CSV</Label>
+                  <Input id="csv_file" type="file" accept=".csv,text/csv" onChange={handleFileChange} />
+                </div>
+
+                {availableHeaders.length > 0 && (
+                  <div className="grid gap-2">
+                    <Label>Map CSV columns</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid gap-1">
+                        <Label>Speaker name</Label>
+                        <Select value={headerMapping.speaker_name} onValueChange={(v) => setHeaderMapping(prev => ({ ...prev, speaker_name: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select column" /></SelectTrigger>
+                          <SelectContent>
+                            {availableHeaders.map((h) => (<SelectItem key={`speaker_${h}`} value={h}>{h}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-1">
+                        <Label>Email</Label>
+                        <Select value={headerMapping.email} onValueChange={(v) => setHeaderMapping(prev => ({ ...prev, email: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select column" /></SelectTrigger>
+                          <SelectContent>
+                            {availableHeaders.map((h) => (<SelectItem key={`email_${h}`} value={h}>{h}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-1">
+                        <Label>Talk title</Label>
+                        <Select value={headerMapping.talk_title} onValueChange={(v) => setHeaderMapping(prev => ({ ...prev, talk_title: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select column" /></SelectTrigger>
+                          <SelectContent>
+                            {availableHeaders.map((h) => (<SelectItem key={`talk_${h}`} value={h}>{h}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-1">
+                        <Label>Event name</Label>
+                        <Select value={headerMapping.event_name} onValueChange={(v) => setHeaderMapping(prev => ({ ...prev, event_name: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select column" /></SelectTrigger>
+                          <SelectContent>
+                            {availableHeaders.map((h) => (<SelectItem key={`event_${h}`} value={h}>{h}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <form onSubmit={onSubmitCsv} className="grid gap-4">
