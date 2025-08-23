@@ -1,22 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-// Declare Deno for IDE TypeScript to avoid 'Cannot find name Deno' locally
-declare const Deno: any;
-
-const baseCors: HeadersInit = {
+const corsHeaders: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Vary": "Origin, Access-Control-Request-Headers",
 };
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    const reqHeaders = req.headers.get("Access-Control-Request-Headers") ??
-      "authorization, x-client-info, apikey, content-type, prefer";
-    return new Response(null, {
-      status: 204,
-      headers: { ...baseCors, "Access-Control-Allow-Headers": reqHeaders },
-    });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -36,12 +28,12 @@ Deno.serve(async (req: Request) => {
 
     return new Response(text || "ok", {
       status: 200,
-      headers: { ...baseCors, "Content-Type": "text/plain" },
+      headers: { ...corsHeaders, "Content-Type": "text/plain" },
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
-      headers: { ...baseCors, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

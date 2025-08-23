@@ -51,7 +51,7 @@ const Dashboard: React.FC = () => {
         .select("id, speaker_name, email, talk_title, event_name, slug, qr_code_url")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
-      if (!error && data) setSpeakers(data as unknown as Speaker[]);
+      if (!error && data) setSpeakers(data as Speaker[]);
       setLoading(false);
     });
     return () => subscription.unsubscribe();
