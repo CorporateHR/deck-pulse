@@ -6,6 +6,7 @@ import { SpeakerForm } from "@/components/SpeakerForm";
 import { RatingStars } from "@/components/RatingStars";
 import { useToast } from "@/hooks/use-toast";
 import QRCode from "react-qr-code";
+import { Download, Eye } from "lucide-react";
 
 type Speaker = {
   id: string;
@@ -89,32 +90,35 @@ const Dashboard: React.FC = () => {
       
       if (ctx) {
         // Create QR code SVG
-        const qrSvg = document.createElement('div');
-        qrSvg.innerHTML = `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:white;"><div style="padding:20px;">${document.querySelector('.qr-code-container')?.innerHTML || ''}</div></div></foreignObject></svg>`;
-        
-        // Convert to base64
-        const svgData = new XMLSerializer().serializeToString(qrSvg.firstChild as Element);
-        const img = new Image();
-        img.onload = async () => {
-          ctx.drawImage(img, 0, 0, size, size);
-          const pngDataUrl = canvas.toDataURL('image/png');
-          // Extract base64 string from data URL
-          const base64String = pngDataUrl.split(',')[1];
-          
-          // Send only QR code base64 to webhook
-          await fetch('https://n8n.quickly4u.com/webhook/ad2f28be-c5b6-4de8-b8f7-3aee0479c218', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            mode: 'no-cors',
-            body: JSON.stringify({ qr_code_png: base64String })
-          });
+        const qrElement = document.querySelector(`[data-qr-id="${speaker.id}"] svg`) as SVGElement;
+        if (qrElement) {
+          const svgData = new XMLSerializer().serializeToString(qrElement);
+          const img = new Image();
+          img.onload = async () => {
+            // White background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, size, size);
+            // Draw QR code
+            ctx.drawImage(img, 0, 0, size, size);
+            const pngDataUrl = canvas.toDataURL('image/png');
+            // Extract base64 string from data URL
+            const base64String = pngDataUrl.split(',')[1];
+            
+            // Send only QR code base64 to webhook
+            await fetch('https://n8n.quickly4u.com/webhook/ad2f28be-c5b6-4de8-b8f7-3aee0479c218', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              mode: 'no-cors',
+              body: JSON.stringify({ qr_code_png: base64String })
+            });
 
-          toast({
-            title: "Shared Successfully",
-            description: "Feedback link and QR code have been shared via webhook."
-          });
-        };
-        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+            toast({
+              title: "Shared Successfully",
+              description: "Feedback link and QR code have been shared via webhook."
+            });
+          };
+          img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+        }
       }
     } catch (error) {
       toast({
@@ -123,6 +127,65 @@ const Dashboard: React.FC = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const downloadQRCode = (speaker: Speaker) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const size = 400; // Higher resolution for download
+    canvas.width = size;
+    canvas.height = size;
+    
+    // Get the QR code SVG element
+    const qrElement = document.querySelector(`[data-qr-id="${speaker.id}"] svg`) as SVGElement;
+    if (!qrElement) {
+      toast({
+        title: "Error",
+        description: "QR code not found. Please wait for it to load.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert SVG to image and draw on canvas
+    const svgData = new XMLSerializer().serializeToString(qrElement);
+    const img = new Image();
+    img.onload = () => {
+      // White background
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Draw QR code in center with some padding
+      const padding = 40;
+      const qrSize = size - (padding * 2);
+      ctx.drawImage(img, padding, padding, qrSize, qrSize);
+      
+      // Add text below QR code
+      ctx.fillStyle = 'black';
+      ctx.font = '16px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${speaker.speaker_name}`, size / 2, size - 20);
+      
+      // Download the image
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const downloadUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = `qr-code-${speaker.slug}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(downloadUrl);
+          
+          toast({
+            title: "QR Code Downloaded",
+            description: `QR code for ${speaker.speaker_name} has been downloaded.`,
+          });
+        }
+      }, 'image/png');
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
   };
 
   const content = useMemo(() => {
@@ -176,23 +239,43 @@ const Dashboard: React.FC = () => {
                       variant="outline" 
                       size="sm" 
                       className="flex-1 sm:flex-none"
+                      onClick={() => navigate(`/feedback/${s.slug}`)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Public View
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 sm:flex-none"
                       onClick={() => handleShareFeedback(s, feedbackUrl)}
                     >
-                      Share Feedback Link
+                      Share QR Code
                     </Button>
                   </div>
                 </div>
                 
                 {/* QR Code Section */}
                 <div className="lg:w-48 flex flex-col items-center">
-                  <div className="p-3 rounded-lg border bg-background mb-3 qr-code-container">
+                  <div className="p-3 rounded-lg border bg-background mb-3" data-qr-id={s.id}>
                     {s.qr_code_url ? (
                       <img src={s.qr_code_url} alt="QR Code" className="w-32 h-32" />
                     ) : (
                       <QRCode value={feedbackUrl} size={128} bgColor="transparent" fgColor="currentColor" />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadQRCode(s)}
+                      className="text-xs"
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      Download
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
                     Scan to leave feedback
                   </p>
                 </div>

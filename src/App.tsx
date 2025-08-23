@@ -11,6 +11,7 @@ import SpeakerResponses from "./pages/SpeakerResponses";
 import FeedbackFormPage from "./pages/FeedbackForm";
 import AppLayout from "@/components/layout/AppLayout";
 import Profile from "./pages/Profile";
+import PublicFeedback from "./pages/PublicFeedback";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
           <Route path="/speaker/:speakerId/responses" element={<SpeakerResponses />} />
           <Route path="/f/:slug" element={<FeedbackFormPage />} />
+          <Route path="/feedback/:slug" element={<PublicFeedback />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
