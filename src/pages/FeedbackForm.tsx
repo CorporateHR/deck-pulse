@@ -11,7 +11,7 @@ const FeedbackFormPage: React.FC = () => {
   const { slug } = useParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [speaker, setSpeaker] = useState<{ id: string; speaker_name: string; email?: string; talk_title: string; event_name: string } | null>(null);
+  const [speaker, setSpeaker] = useState<{ id: string; speaker_name: string; talk_title: string; event_name: string } | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -22,7 +22,7 @@ const FeedbackFormPage: React.FC = () => {
       if (!slug) return;
       const { data, error } = await supabase
         .from("speakers")
-        .select("id, speaker_name, email, talk_title, event_name")
+        .select("id, speaker_name, talk_title, event_name")
         .eq("slug", slug)
         .maybeSingle();
       if (!error && data) setSpeaker(data);

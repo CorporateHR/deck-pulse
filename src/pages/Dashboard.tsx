@@ -11,7 +11,6 @@ import { Download, Eye } from "lucide-react";
 type Speaker = {
   id: string;
   speaker_name: string;
-  email?: string;
   talk_title: string;
   event_name: string;
   slug: string;
@@ -48,7 +47,7 @@ const Dashboard: React.FC = () => {
       }
       const { data, error } = await supabase
         .from("speakers")
-        .select("id, speaker_name, email, talk_title, event_name, slug, qr_code_url")
+        .select("id, speaker_name, talk_title, event_name, slug, qr_code_url")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (!error && data) setSpeakers(data as Speaker[]);
@@ -126,11 +125,11 @@ const Dashboard: React.FC = () => {
           const { error } = await supabase.functions.invoke('forward-webhook', {
             body: [
               { type: 'qr_code_png', value: base64String },
-              { type: 'name', value: speaker.speaker_name },
-              { type: 'email', value: speaker.email ?? null },
+              { type: 'speaker_name', value: speaker.speaker_name },
+              { type: 'talk_title', value: speaker.talk_title },
               { type: 'event_name', value: speaker.event_name },
-              { type: 'collect_feedback_url', value: feedbackUrl },
-              { type: 'feedback_view_url', value: viewUrl }
+              { type: 'response_submission_url', value: feedbackUrl },
+              { type: 'public_view_url', value: viewUrl }
             ]
           });
           if (error) {
@@ -254,9 +253,8 @@ const Dashboard: React.FC = () => {
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold mb-2">{s.talk_title}</h3>
                   <p className="text-muted-foreground mb-4">
-                    <span className="font-medium">Speaker:</span> {s.speaker_name}
-                    {s.email && <span className="text-sm"> ({s.email})</span>} • 
-                    <span className="font-medium ml-2">Event:</span> {s.event_name}
+                    <span className="font-medium">Speaker:</span> {s.speaker_name} • 
+                    <span className="font-medium">Event:</span> {s.event_name}
                   </p>
                   
                   {/* Rating & Stats */}
