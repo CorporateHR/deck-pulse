@@ -17,7 +17,9 @@ type Speaker = {
 
 type Feedback = {
   id: string;
-  rating: number;
+  originality_rating: number;
+  usefulness_rating: number;
+  engagement_rating: number;
   comment: string | null;
   created_at: string;
 };
@@ -29,7 +31,9 @@ const PublicFeedback = () => {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
     count: 0,
-    averageRating: 0,
+    avgOriginality: 0,
+    avgUsefulness: 0,
+    avgEngagement: 0,
     commentCount: 0
   });
 
@@ -65,13 +69,17 @@ const PublicFeedback = () => {
 
       // Calculate metrics
       if (feedbackData && feedbackData.length > 0) {
-        const totalRating = feedbackData.reduce((sum, item) => sum + item.rating, 0);
-        const avgRating = totalRating / feedbackData.length;
+        const totalResponses = feedbackData.length;
+        const avgOriginality = feedbackData.reduce((sum, item) => sum + item.originality_rating, 0) / totalResponses;
+        const avgUsefulness = feedbackData.reduce((sum, item) => sum + item.usefulness_rating, 0) / totalResponses;
+        const avgEngagement = feedbackData.reduce((sum, item) => sum + item.engagement_rating, 0) / totalResponses;
         const commentsCount = feedbackData.filter(item => item.comment && item.comment.trim()).length;
 
         setMetrics({
-          count: feedbackData.length,
-          averageRating: avgRating,
+          count: totalResponses,
+          avgOriginality,
+          avgUsefulness,
+          avgEngagement,
           commentCount: commentsCount
         });
       }
@@ -85,7 +93,11 @@ const PublicFeedback = () => {
   const getRatingDistribution = () => {
     const distribution = [0, 0, 0, 0, 0];
     feedback.forEach((item) => {
-      distribution[item.rating - 1]++;
+      // Calculate average of three ratings for distribution
+      const avgRating = Math.round((item.originality_rating + item.usefulness_rating + item.engagement_rating) / 3);
+      if (avgRating >= 1 && avgRating <= 5) {
+        distribution[avgRating - 1]++;
+      }
     });
     return distribution;
   };
@@ -138,22 +150,38 @@ const PublicFeedback = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-primary mb-1">
-                    {metrics.averageRating.toFixed(1)}
+                    {metrics.avgOriginality.toFixed(1)}
                   </div>
                   <div className="mb-2">
-                    <RatingStars value={metrics.averageRating} readOnly />
+                    <RatingStars value={Math.round(metrics.avgOriginality)} readOnly />
                   </div>
-                  <div className="text-sm text-muted-foreground">Average Rating</div>
+                  <div className="text-sm text-muted-foreground">Originality</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary mb-1">
+                    {metrics.avgUsefulness.toFixed(1)}
+                  </div>
+                  <div className="mb-2">
+                    <RatingStars value={Math.round(metrics.avgUsefulness)} readOnly />
+                  </div>
+                  <div className="text-sm text-muted-foreground">Usefulness</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary mb-1">
+                    {metrics.avgEngagement.toFixed(1)}
+                  </div>
+                  <div className="mb-2">
+                    <RatingStars value={Math.round(metrics.avgEngagement)} readOnly />
+                  </div>
+                  <div className="text-sm text-muted-foreground">Engagement</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-primary mb-1">{metrics.count}</div>
                   <div className="text-sm text-muted-foreground">Total Responses</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-primary mb-1">{metrics.commentCount}</div>
+                  <div className="text-2xl font-bold text-primary mt-2">{metrics.commentCount}</div>
                   <div className="text-sm text-muted-foreground">With Comments</div>
                 </div>
               </div>
@@ -203,11 +231,21 @@ const PublicFeedback = () => {
             feedback.map((item) => (
               <Card key={item.id}>
                 <CardContent className="pt-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <RatingStars value={item.rating} readOnly />
-                      <Badge variant="secondary">{item.rating}/5</Badge>
+                  <div className="grid gap-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Originality:</span>
+                      <RatingStars value={item.originality_rating} readOnly />
                     </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Usefulness:</span>
+                      <RatingStars value={item.usefulness_rating} readOnly />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Engagement:</span>
+                      <RatingStars value={item.engagement_rating} readOnly />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mb-3">
                     <span className="text-sm text-muted-foreground">
                       {new Date(item.created_at).toLocaleDateString()} at{' '}
                       {new Date(item.created_at).toLocaleTimeString([], {
@@ -217,7 +255,9 @@ const PublicFeedback = () => {
                     </span>
                   </div>
                   {item.comment && (
-                    <p className="text-foreground leading-relaxed">{item.comment}</p>
+                    <div className="border-t pt-3">
+                      <p className="text-foreground leading-relaxed">{item.comment}</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>

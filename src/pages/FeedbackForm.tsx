@@ -12,7 +12,9 @@ const FeedbackFormPage: React.FC = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [speaker, setSpeaker] = useState<{ id: string; speaker_name: string; talk_title: string; event_name: string } | null>(null);
-  const [rating, setRating] = useState(0);
+  const [originalityRating, setOriginalityRating] = useState(0);
+  const [usefulnessRating, setUsefulnessRating] = useState(0);
+  const [engagementRating, setEngagementRating] = useState(0);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -31,27 +33,36 @@ const FeedbackFormPage: React.FC = () => {
     void load();
   }, [slug]);
 
-  const canSubmit = useMemo(() => rating >= 1 && rating <= 5, [rating]);
+  const canSubmit = useMemo(() => 
+    originalityRating >= 1 && originalityRating <= 5 &&
+    usefulnessRating >= 1 && usefulnessRating <= 5 &&
+    engagementRating >= 1 && engagementRating <= 5, 
+    [originalityRating, usefulnessRating, engagementRating]
+  );
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!speaker) return;
     if (!canSubmit) {
-      toast({ title: "Rating required", description: "Please select 1–5 stars." });
+      toast({ title: "Ratings required", description: "Please rate all three categories (1–5 stars each)." });
       return;
     }
     setSubmitting(true);
     try {
       const { error } = await supabase.from("feedback").insert({
         speaker_id: speaker.id,
-        rating,
+        originality_rating: originalityRating,
+        usefulness_rating: usefulnessRating,
+        engagement_rating: engagementRating,
         comment: comment.trim() ? comment.trim() : null,
       });
       if (error) throw error;
       setSubmitted(true);
       toast({ title: "Thank you!", description: "Your feedback was submitted." });
       setComment("");
-      setRating(0);
+      setOriginalityRating(0);
+      setUsefulnessRating(0);
+      setEngagementRating(0);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Could not submit feedback" });
     } finally {
@@ -84,10 +95,25 @@ const FeedbackFormPage: React.FC = () => {
                 <p className="text-muted-foreground text-sm">You can close this page now.</p>
               </div>
             ) : (
-              <form onSubmit={onSubmit} className="grid gap-4">
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">Rating</label>
-                  <RatingStars value={rating} onChange={setRating} />
+              <form onSubmit={onSubmit} className="grid gap-6">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">Originality of the Talk</label>
+                    <p className="text-xs text-muted-foreground">(1 = Not at all original, 5 = Very original)</p>
+                    <RatingStars value={originalityRating} onChange={setOriginalityRating} />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">Usefulness of the content</label>
+                    <p className="text-xs text-muted-foreground">(1 = Not useful, 5 = Very useful)</p>
+                    <RatingStars value={usefulnessRating} onChange={setUsefulnessRating} />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">Audience engagement</label>
+                    <p className="text-xs text-muted-foreground">(1 = Not engaging, 5 = Very engaging)</p>
+                    <RatingStars value={engagementRating} onChange={setEngagementRating} />
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <label htmlFor="comment" className="text-sm font-medium">Comment (optional)</label>

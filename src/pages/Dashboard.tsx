@@ -18,7 +18,9 @@ type Speaker = {
 };
 
 type Feedback = {
-  rating: number;
+  originality_rating: number;
+  usefulness_rating: number;
+  engagement_rating: number;
   comment: string | null;
   created_at: string;
 };
@@ -62,13 +64,19 @@ const Dashboard: React.FC = () => {
       for (const s of speakers) {
         const { data, error } = await supabase
           .from("feedback")
-          .select("rating, comment, created_at")
+          .select("originality_rating, usefulness_rating, engagement_rating, comment, created_at")
           .eq("speaker_id", s.id)
           .order("created_at", { ascending: false });
         if (!error && data) {
           const list = data as Feedback[];
           const count = list.length;
-          const avg = count ? list.reduce((s, f) => s + f.rating, 0) / count : 0;
+          let avg = 0;
+          if (count > 0) {
+            // Calculate average across all three ratings
+            const totalRatings = list.reduce((sum, f) => 
+              sum + f.originality_rating + f.usefulness_rating + f.engagement_rating, 0);
+            avg = totalRatings / (count * 3);
+          }
           all[s.id] = { count, avg, lastComments: list.slice(0, 5) };
         } else {
           all[s.id] = { count: 0, avg: 0, lastComments: [] };
@@ -334,7 +342,9 @@ const Dashboard: React.FC = () => {
                     {m.lastComments.slice(0, 2).map((f, idx) => (
                       <div key={idx} className="bg-muted/30 rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <RatingStars value={f.rating} readOnly />
+                          <div className="text-xs text-muted-foreground">
+                            O:{f.originality_rating} U:{f.usefulness_rating} E:{f.engagement_rating}
+                          </div>
                           <span className="text-xs text-muted-foreground">
                             {new Date(f.created_at).toLocaleDateString()}
                           </span>

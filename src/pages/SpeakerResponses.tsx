@@ -16,7 +16,9 @@ type Speaker = {
 
 type Feedback = {
   id: string;
-  rating: number;
+  originality_rating: number;
+  usefulness_rating: number;
+  engagement_rating: number;
   comment: string | null;
   created_at: string;
 };
@@ -27,7 +29,12 @@ const SpeakerResponses: React.FC = () => {
   const [speaker, setSpeaker] = useState<Speaker | null>(null);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState({ count: 0, avg: 0 });
+  const [metrics, setMetrics] = useState({ 
+    count: 0, 
+    avgOriginality: 0,
+    avgUsefulness: 0,
+    avgEngagement: 0
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,15 +65,19 @@ const SpeakerResponses: React.FC = () => {
       // Fetch feedback
       const { data: feedbackData, error: feedbackError } = await supabase
         .from("feedback")
-        .select("id, rating, comment, created_at")
+        .select("id, originality_rating, usefulness_rating, engagement_rating, comment, created_at")
         .eq("speaker_id", speakerId)
         .order("created_at", { ascending: false });
 
       if (!feedbackError && feedbackData) {
         setFeedback(feedbackData);
         const count = feedbackData.length;
-        const avg = count ? feedbackData.reduce((sum, f) => sum + f.rating, 0) / count : 0;
-        setMetrics({ count, avg });
+        if (count > 0) {
+          const avgOriginality = feedbackData.reduce((sum, f) => sum + f.originality_rating, 0) / count;
+          const avgUsefulness = feedbackData.reduce((sum, f) => sum + f.usefulness_rating, 0) / count;
+          const avgEngagement = feedbackData.reduce((sum, f) => sum + f.engagement_rating, 0) / count;
+          setMetrics({ count, avgOriginality, avgUsefulness, avgEngagement });
+        }
       }
 
       setLoading(false);
@@ -110,7 +121,11 @@ const SpeakerResponses: React.FC = () => {
   const getRatingDistribution = () => {
     const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     feedback.forEach(f => {
-      distribution[f.rating as keyof typeof distribution]++;
+      // Calculate average of three ratings for distribution
+      const avgRating = Math.round((f.originality_rating + f.usefulness_rating + f.engagement_rating) / 3);
+      if (avgRating >= 1 && avgRating <= 5) {
+        distribution[avgRating as keyof typeof distribution]++;
+      }
     });
     return distribution;
   };
@@ -141,7 +156,7 @@ const SpeakerResponses: React.FC = () => {
         </div>
 
         {/* Metrics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="border-2">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
@@ -149,8 +164,36 @@ const SpeakerResponses: React.FC = () => {
                   <TrendingUp className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{metrics.avg.toFixed(1)}</p>
-                  <p className="text-sm text-muted-foreground">Average Rating</p>
+                  <p className="text-2xl font-bold">{metrics.avgOriginality.toFixed(1)}</p>
+                  <p className="text-sm text-muted-foreground">Originality</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-primary/10">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{metrics.avgUsefulness.toFixed(1)}</p>
+                  <p className="text-sm text-muted-foreground">Usefulness</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-primary/10">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{metrics.avgEngagement.toFixed(1)}</p>
+                  <p className="text-sm text-muted-foreground">Engagement</p>
                 </div>
               </div>
             </CardContent>
@@ -165,22 +208,10 @@ const SpeakerResponses: React.FC = () => {
                 <div>
                   <p className="text-2xl font-bold">{metrics.count}</p>
                   <p className="text-sm text-muted-foreground">Total Responses</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-full bg-primary/10">
-                  <MessageCircle className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-lg font-semibold mt-1">
                     {feedback.filter(f => f.comment && f.comment.trim().length > 0).length}
                   </p>
-                  <p className="text-sm text-muted-foreground">With Comments</p>
+                  <p className="text-xs text-muted-foreground">With Comments</p>
                 </div>
               </div>
             </CardContent>
@@ -193,8 +224,9 @@ const SpeakerResponses: React.FC = () => {
             <CardTitle className="flex items-center gap-3">
               <span>Rating Summary</span>
               <div className="flex items-center gap-2">
-                <RatingStars value={Math.round(metrics.avg)} readOnly />
-                <span className="text-lg font-semibold">{metrics.avg.toFixed(1)}</span>
+                <span className="text-sm text-muted-foreground">
+                  Avg: O:{metrics.avgOriginality.toFixed(1)} U:{metrics.avgUsefulness.toFixed(1)} E:{metrics.avgEngagement.toFixed(1)}
+                </span>
               </div>
             </CardTitle>
           </CardHeader>
@@ -234,8 +266,22 @@ const SpeakerResponses: React.FC = () => {
               {feedback.map((f) => (
                 <Card key={f.id} className="transition-shadow hover:shadow-md">
                   <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <RatingStars value={f.rating} readOnly />
+                    <div className="grid gap-3 mb-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Originality:</span>
+                        <RatingStars value={f.originality_rating} readOnly />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Usefulness:</span>
+                        <RatingStars value={f.usefulness_rating} readOnly />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Engagement:</span>
+                        <RatingStars value={f.engagement_rating} readOnly />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end mb-4">
                       <span className="text-sm text-muted-foreground">
                         {new Date(f.created_at).toLocaleDateString('en-US', {
                           year: 'numeric',

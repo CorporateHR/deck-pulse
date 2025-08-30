@@ -18,23 +18,29 @@ export type Database = {
         Row: {
           comment: string | null
           created_at: string
+          engagement_rating: number
           id: string
-          rating: number
+          originality_rating: number
           speaker_id: string
+          usefulness_rating: number
         }
         Insert: {
           comment?: string | null
           created_at?: string
+          engagement_rating?: number
           id?: string
-          rating: number
+          originality_rating?: number
           speaker_id: string
+          usefulness_rating?: number
         }
         Update: {
           comment?: string | null
           created_at?: string
+          engagement_rating?: number
           id?: string
-          rating?: number
+          originality_rating?: number
           speaker_id?: string
+          usefulness_rating?: number
         }
         Relationships: [
           {
@@ -49,6 +55,7 @@ export type Database = {
       speakers: {
         Row: {
           created_at: string
+          email: string | null
           event_name: string
           id: string
           qr_code_url: string | null
@@ -60,6 +67,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email?: string | null
           event_name: string
           id?: string
           qr_code_url?: string | null
@@ -71,6 +79,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email?: string | null
           event_name?: string
           id?: string
           qr_code_url?: string | null
