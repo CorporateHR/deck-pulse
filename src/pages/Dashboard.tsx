@@ -15,6 +15,7 @@ type Speaker = {
   event_name: string;
   slug: string;
   qr_code_url?: string;
+  webhook_sent_at?: string;
 };
 
 type Feedback = {
@@ -49,7 +50,7 @@ const Dashboard: React.FC = () => {
       }
       const { data, error } = await supabase
         .from("speakers")
-        .select("id, speaker_name, talk_title, event_name, slug, qr_code_url")
+        .select("id, speaker_name, talk_title, event_name, slug, qr_code_url, webhook_sent_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (!error && data) setSpeakers(data as Speaker[]);
@@ -144,6 +145,20 @@ const Dashboard: React.FC = () => {
             toast({ title: 'Error', description: 'Failed to send to webhook.', variant: 'destructive' });
             return;
           }
+          
+          // Update webhook_sent_at timestamp
+          await supabase
+            .from("speakers")
+            .update({ webhook_sent_at: new Date().toISOString() })
+            .eq("id", speaker.id);
+          
+          // Update local state
+          setSpeakers(prev => prev.map(s => 
+            s.id === speaker.id 
+              ? { ...s, webhook_sent_at: new Date().toISOString() }
+              : s
+          ));
+          
           toast({ title: 'Shared Successfully', description: 'Feedback link and QR code have been shared via webhook.' });
         };
 
@@ -298,12 +313,12 @@ const Dashboard: React.FC = () => {
                       </a>
                     </Button>
                     <Button 
-                      variant="outline" 
+                      variant={s.webhook_sent_at ? "secondary" : "outline"}
                       size="sm" 
                       className="flex-1 sm:flex-none"
                       onClick={() => handleShareFeedback(s, collectUrl)}
                     >
-                      Share QR Code
+                      {s.webhook_sent_at ? "Shared ✓" : "Share QR Code"}
                     </Button>
                   </div>
                 </div>
@@ -331,6 +346,11 @@ const Dashboard: React.FC = () => {
                   <p className="text-xs text-muted-foreground text-center mt-2">
                     Scan to leave feedback
                   </p>
+                  {s.webhook_sent_at && (
+                    <p className="text-xs text-green-600 text-center mt-1">
+                      Shared {new Date(s.webhook_sent_at).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </div>
               
