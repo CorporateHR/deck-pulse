@@ -105,13 +105,11 @@ const FeedbackFormPage: React.FC = () => {
                   
                   <div className="grid gap-2">
                     <label className="text-sm font-medium">Usefulness of the content</label>
-                    <p className="text-xs text-muted-foreground">(1 = Not useful, 5 = Very useful)</p>
                     <RatingStars value={usefulnessRating} onChange={setUsefulnessRating} />
                   </div>
                   
                   <div className="grid gap-2">
                     <label className="text-sm font-medium">Audience engagement</label>
-                    <p className="text-xs text-muted-foreground">(1 = Not engaging, 5 = Very engaging)</p>
                     <RatingStars value={engagementRating} onChange={setEngagementRating} />
                   </div>
                 </div>
