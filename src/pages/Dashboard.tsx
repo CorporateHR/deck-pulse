@@ -14,6 +14,7 @@ type Speaker = {
   talk_title: string;
   event_name: string;
   slug: string;
+  email?: string;
   qr_code_url?: string;
   webhook_sent_at?: string;
 };
@@ -50,7 +51,7 @@ const Dashboard: React.FC = () => {
       }
       const { data, error } = await supabase
         .from("speakers")
-        .select("id, speaker_name, talk_title, event_name, slug, qr_code_url, webhook_sent_at")
+        .select("id, speaker_name, talk_title, event_name, slug, email, qr_code_url, webhook_sent_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (!error && data) setSpeakers(data as Speaker[]);
@@ -137,6 +138,7 @@ const Dashboard: React.FC = () => {
               { type: 'speaker_name', value: speaker.speaker_name },
               { type: 'talk_title', value: speaker.talk_title },
               { type: 'event_name', value: speaker.event_name },
+              { type: 'speaker_email', value: speaker.email || '' },
               { type: 'response_submission_url', value: feedbackUrl },
               { type: 'public_view_url', value: viewUrl }
             ]
